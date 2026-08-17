@@ -76,11 +76,11 @@ class ConsolidatedReceivablePayableSummary(AccountsReceivableSummary):
 		return by_party
 
 	def total_row(self, rows):
-		# label sits in the Party column, like the total row of the plain summary reports.
-		# party_type stays blank so the Dynamic Link renders as plain text.
+		# label sits in the first column, like the total row of the plain summary reports;
+		# `bold` is picked up by the formatter in the report's js
 		total = frappe._dict(
-			party=_("Total"),
-			party_type="",
+			party_type=_("Total"),
+			party="",
 			company="",
 			currency=self.company_currency,
 			bold=1,

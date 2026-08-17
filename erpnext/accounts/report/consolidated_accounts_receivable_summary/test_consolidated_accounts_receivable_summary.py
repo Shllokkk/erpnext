@@ -31,8 +31,9 @@ class TestConsolidatedAccountsReceivableSummary(ERPNextTestSuite, AccountsTestMi
 		rows = self.run_report()
 
 		self.assertEqual([r.company for r in rows], [self.company_a, self.company_b, ""])
-		self.assertEqual([r.party for r in rows], [self.customer, self.customer, "Total"])
+		self.assertEqual([r.party for r in rows], [self.customer, self.customer, ""])
 		self.assertEqual([r.outstanding for r in rows], [200.0, 300.0, 500.0])
+		self.assertEqual(rows[-1].party_type, "Total")
 		self.assertTrue(rows[-1].bold)
 
 	def test_total_matches_individual_company_summaries(self):
