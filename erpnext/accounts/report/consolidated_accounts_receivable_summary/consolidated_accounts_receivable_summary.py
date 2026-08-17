@@ -86,7 +86,8 @@ class ConsolidatedReceivablePayableSummary(AccountsReceivableSummary):
 		)
 		for row in rows:
 			for field, value in row.items():
-				if isinstance(value, float):
+				# `advance` arrives as an int when there is none, so don't filter on float alone
+				if isinstance(value, int | float) and not isinstance(value, bool):
 					total[field] = flt(total.get(field)) + value
 
 		return total
