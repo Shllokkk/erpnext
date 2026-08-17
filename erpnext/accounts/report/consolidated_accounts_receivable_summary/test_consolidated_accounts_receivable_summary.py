@@ -30,7 +30,8 @@ class TestConsolidatedAccountsReceivableSummary(ERPNextTestSuite, AccountsTestMi
 
 		rows = self.run_report()
 
-		self.assertEqual([r.company for r in rows], [self.company_a, self.company_b, "Total"])
+		self.assertEqual([r.company for r in rows], [self.company_a, self.company_b, ""])
+		self.assertEqual([r.party for r in rows], [self.customer, self.customer, "Total"])
 		self.assertEqual([r.outstanding for r in rows], [200.0, 300.0, 500.0])
 		self.assertTrue(rows[-1].bold)
 
@@ -48,7 +49,7 @@ class TestConsolidatedAccountsReceivableSummary(ERPNextTestSuite, AccountsTestMi
 
 		rows = self.run_report()
 
-		self.assertEqual([r.company for r in rows], [self.company_a, "Total"])
+		self.assertEqual([r.company for r in rows], [self.company_a, ""])
 		self.assertEqual(rows[-1].outstanding, 200.0)
 
 	def test_a_single_company_is_rejected(self):
@@ -74,7 +75,8 @@ class TestConsolidatedAccountsReceivableSummary(ERPNextTestSuite, AccountsTestMi
 		}
 
 	def run_report(self):
-		return [row for row in execute(self.filters())[1] if row.party == self.customer]
+		# the party filter already scopes this to one customer, so keep the total row too
+		return execute(self.filters())[1]
 
 	def company_outstanding(self, company):
 		filters = {"company": company, "report_date": today(), "range": "30, 60, 90, 120"}
