@@ -88,6 +88,14 @@ frappe.query_reports["Consolidated Accounts Payable Summary"] = {
 	collapsible_filters: true,
 	separate_check_filters: true,
 
+	formatter: function (value, row, column, data, default_formatter) {
+		value = default_formatter(value, row, column, data);
+		if (data && data.bold) {
+			value = value.bold();
+		}
+		return value;
+	},
+
 	onload: function (report) {
 		if (frappe.boot.sysdefaults.default_ageing_range) {
 			report.set_filter_value("range", frappe.boot.sysdefaults.default_ageing_range);
