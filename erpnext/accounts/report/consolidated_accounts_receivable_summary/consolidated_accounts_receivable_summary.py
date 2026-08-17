@@ -57,9 +57,9 @@ class ConsolidatedReceivablePayableSummary(AccountsReceivableSummary):
 
 	def get_data(self, args):
 		self.data = []
-		for party, rows in self.get_rows_by_party(args).items():
+		for rows in self.get_rows_by_party(args).values():
 			self.data.extend(rows)
-			self.data.append(self.total_row(party, rows))
+			self.data.append(self.total_row(rows))
 
 	def get_rows_by_party(self, args):
 		"""One inner summary run per company, regrouped so a party's companies sit together."""
@@ -75,12 +75,13 @@ class ConsolidatedReceivablePayableSummary(AccountsReceivableSummary):
 
 		return by_party
 
-	def total_row(self, party, rows):
+	def total_row(self, rows):
+		# label sits in the Party column, like the total row of the plain summary reports.
+		# party_type stays blank so the Dynamic Link renders as plain text.
 		total = frappe._dict(
-			party=party,
-			party_type=rows[0].party_type,
-			party_name=rows[0].get("party_name"),
-			company=_("Total"),
+			party=_("Total"),
+			party_type="",
+			company="",
 			currency=self.company_currency,
 			bold=1,
 		)
