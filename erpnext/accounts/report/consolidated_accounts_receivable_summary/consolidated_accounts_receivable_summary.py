@@ -30,19 +30,14 @@ class ConsolidatedReceivablePayableSummary(AccountsReceivableSummary):
 		self.party_type = get_party_types_from_account_type(self.account_type)
 		self.party_naming_by = frappe.db.get_single_value(args.get("naming_by")[0], args.get("naming_by")[1])
 		self.currency_precision = get_currency_precision() or 2
-		self.companies = self.validate_filters()
+		self.companies = self.get_companies()
 		self.get_columns()
 		self.get_data(args)
 		return self.columns, self.data
 
-	def validate_filters(self):
+	def get_companies(self):
+		"""No companies selected simply yields an empty report, like the plain summaries."""
 		companies = self.filters.get("companies") or []
-		if len(companies) < 2:
-			frappe.throw(_("Select at least two Companies to compare"))
-
-		# this is a party-centric view, scanning every party of every company is not the intent
-		if not self.filters.get("party"):
-			frappe.throw(_("Select a Party"))
 
 		currencies = {frappe.get_cached_value("Company", c, "default_currency") for c in companies}
 		if len(currencies) > 1:
@@ -52,7 +47,7 @@ class ConsolidatedReceivablePayableSummary(AccountsReceivableSummary):
 				)
 			)
 
-		self.company_currency = currencies.pop()
+		self.company_currency = currencies.pop() if currencies else None
 		return companies
 
 	def get_data(self, args):
