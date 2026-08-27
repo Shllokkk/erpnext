@@ -53,13 +53,24 @@ class TestConsolidatedAccountsReceivableSummary(ERPNextTestSuite, AccountsTestMi
 		self.assertEqual([r.company for r in rows], [self.company_a, ""])
 		self.assertEqual(rows[-1].outstanding, 200.0)
 
-	def test_a_single_company_is_rejected(self):
-		self.assertRaises(frappe.ValidationError, execute, self.filters(companies=[self.company_a]))
+	def test_no_companies_selected_returns_nothing(self):
+		self.create_invoice(self.company_a, "_TUNA", 200)
 
-	def test_party_filter_is_mandatory(self):
+		self.assertEqual(execute(self.filters(companies=[]))[1], [])
+
+	def test_all_parties_are_shown_when_no_party_is_selected(self):
+		self.create_customer("_Test Second Consolidation Customer")
+		other = self.customer
+		self.create_customer("_Test Consolidation Customer")
+
+		self.create_invoice(self.company_a, "_TUNA", 200)
+		self.create_invoice(self.company_a, "_TUNA", 300, customer=other)
+
 		filters = self.filters()
 		filters.pop("party")
-		self.assertRaises(frappe.ValidationError, execute, filters)
+		parties = {r.party for r in execute(filters)[1] if r.party}
+
+		self.assertEqual(parties, {self.customer, other})
 
 	def test_companies_with_different_currencies_are_rejected(self):
 		usd = self.create_test_company("_Test Unrelated USD", "_TUNU", currency="USD")
@@ -83,11 +94,11 @@ class TestConsolidatedAccountsReceivableSummary(ERPNextTestSuite, AccountsTestMi
 		filters = {"company": company, "report_date": today(), "range": "30, 60, 90, 120"}
 		return sum(r.outstanding for r in execute_summary(filters)[1] if r.party == self.customer)
 
-	def create_invoice(self, company, abbr, rate):
+	def create_invoice(self, company, abbr, rate, customer=None):
 		return create_sales_invoice(
 			item=self.item,
 			company=company,
-			customer=self.customer,
+			customer=customer or self.customer,
 			debit_to=f"Debtors - {abbr}",
 			income_account=f"Sales - {abbr}",
 			cost_center=f"Main - {abbr}",
