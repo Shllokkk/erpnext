@@ -10,6 +10,9 @@ from frappe.utils import flt
 from erpnext.accounts.report.accounts_receivable_summary.accounts_receivable_summary import (
 	AccountsReceivableSummary,
 )
+from erpnext.accounts.report.consolidated_financial_statement.consolidated_financial_statement import (
+	get_subsidiary_companies,
+)
 from erpnext.accounts.utils import get_currency_precision, get_party_types_from_account_type
 
 # What a party owes (or is owed) across companies that need not be related to each other.
@@ -37,7 +40,12 @@ class ConsolidatedReceivablePayableSummary(AccountsReceivableSummary):
 
 	def get_companies(self):
 		"""No companies selected simply yields an empty report, like the plain summaries."""
-		companies = self.filters.get("companies") or []
+		companies = []
+		for selected in self.filters.get("companies") or []:
+			# a group company stands for the companies under it, each still its own row
+			for company in get_subsidiary_companies(selected):
+				if company not in companies:
+					companies.append(company)
 
 		currencies = {frappe.get_cached_value("Company", c, "default_currency") for c in companies}
 		if len(currencies) > 1:
@@ -64,8 +72,9 @@ class ConsolidatedReceivablePayableSummary(AccountsReceivableSummary):
 			filters.company = company
 			filters.pop("companies", None)
 
+			parent = frappe.get_cached_value("Company", company, "parent_company")
 			for row in AccountsReceivableSummary(filters).run(args)[1]:
-				row.company = company
+				row.company, row.parent_company = company, parent
 				by_party.setdefault(row.party, []).append(row)
 
 		return by_party
@@ -90,9 +99,27 @@ class ConsolidatedReceivablePayableSummary(AccountsReceivableSummary):
 
 	def get_columns(self):
 		super().get_columns()
+		at = self.company_column_index()
 		self.columns.insert(
-			self.company_column_index(),
-			dict(label=_("Company"), fieldname="company", fieldtype="Data", options=None, width=180),
+			at,
+			dict(
+				label=_("Company"),
+				fieldname="company",
+				fieldtype="Data",
+				options=None,
+				width=180,
+				sticky=True,
+			),
+		)
+		self.columns.insert(
+			at + 1,
+			dict(
+				label=_("Parent Company"),
+				fieldname="parent_company",
+				fieldtype="Link",
+				options="Company",
+				width=160,
+			),
 		)
 
 	def company_column_index(self):
