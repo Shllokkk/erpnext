@@ -5,6 +5,7 @@ from collections import OrderedDict
 
 import frappe
 from frappe import _
+from frappe.model import numeric_fieldtypes
 from frappe.utils import flt
 
 from erpnext.accounts.report.accounts_receivable_summary.accounts_receivable_summary import (
@@ -121,6 +122,9 @@ class ConsolidatedReceivablePayableSummary(AccountsReceivableSummary):
 				width=160,
 			),
 		)
+
+		for column in self.columns:
+			column["align"] = "right" if column["fieldtype"] in numeric_fieldtypes else "left"
 
 	def company_column_index(self):
 		# straight after Party, and after the party name column when naming series is in use
