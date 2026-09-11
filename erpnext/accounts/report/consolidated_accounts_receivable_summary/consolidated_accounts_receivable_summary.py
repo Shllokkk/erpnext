@@ -5,14 +5,14 @@ from collections import OrderedDict
 
 import frappe
 from frappe import _
-from frappe.model import numeric_fieldtypes
 from frappe.utils import flt
 
 from erpnext.accounts.report.accounts_receivable_summary.accounts_receivable_summary import (
 	AccountsReceivableSummary,
 )
-from erpnext.accounts.report.consolidated_financial_statement.consolidated_financial_statement import (
-	get_subsidiary_companies,
+from erpnext.accounts.report.consolidated_accounts_receivable.consolidated_accounts_receivable import (
+	add_company_columns,
+	get_consolidated_companies,
 )
 from erpnext.accounts.utils import get_currency_precision, get_party_types_from_account_type
 
@@ -40,23 +40,10 @@ class ConsolidatedReceivablePayableSummary(AccountsReceivableSummary):
 		return self.columns, self.data
 
 	def get_companies(self):
-		"""No companies selected simply yields an empty report, like the plain summaries."""
-		companies = []
-		for selected in self.filters.get("companies") or []:
-			# a group company stands for the companies under it, each still its own row
-			for company in get_subsidiary_companies(selected):
-				if company not in companies:
-					companies.append(company)
-
-		currencies = {frappe.get_cached_value("Company", c, "default_currency") for c in companies}
-		if len(currencies) > 1:
-			frappe.throw(
-				_("Companies being compared must share the same default currency. Found: {0}").format(
-					", ".join(sorted(currencies))
-				)
-			)
-
-		self.company_currency = currencies.pop() if currencies else None
+		companies = get_consolidated_companies(self.filters)
+		self.company_currency = (
+			frappe.get_cached_value("Company", companies[0], "default_currency") if companies else None
+		)
 		return companies
 
 	def get_data(self, args):
@@ -100,32 +87,4 @@ class ConsolidatedReceivablePayableSummary(AccountsReceivableSummary):
 
 	def get_columns(self):
 		super().get_columns()
-		at = self.company_column_index()
-		self.columns.insert(
-			at,
-			dict(
-				label=_("Company"),
-				fieldname="company",
-				fieldtype="Data",
-				options=None,
-				width=180,
-				sticky=True,
-			),
-		)
-		self.columns.insert(
-			at + 1,
-			dict(
-				label=_("Parent Company"),
-				fieldname="parent_company",
-				fieldtype="Link",
-				options="Company",
-				width=160,
-			),
-		)
-
-		for column in self.columns:
-			column["align"] = "right" if column["fieldtype"] in numeric_fieldtypes else "left"
-
-	def company_column_index(self):
-		# straight after Party, and after the party name column when naming series is in use
-		return 3 if self.party_naming_by == "Naming Series" else 2
+		add_company_columns(self.columns)
