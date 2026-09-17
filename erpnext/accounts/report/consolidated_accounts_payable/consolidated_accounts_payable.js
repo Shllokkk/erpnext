@@ -78,6 +78,11 @@ frappe.query_reports["Consolidated Accounts Payable"] = {
 			fieldtype: "Check",
 		},
 		{
+			fieldname: "group_by_company",
+			label: __("Group By Company"),
+			fieldtype: "Check",
+		},
+		{
 			fieldname: "based_on_payment_terms",
 			label: __("Based On Payment Terms"),
 			fieldtype: "Check",

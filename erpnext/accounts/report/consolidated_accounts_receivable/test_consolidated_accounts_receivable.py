@@ -41,6 +41,17 @@ class TestConsolidatedAccountsReceivable(ERPNextTestSuite, AccountsTestMixin):
 		self.assertEqual(subtotals[0].outstanding, 500.0)
 		self.assertEqual(result[5], 1)  # skip_total_row, else the grand total double counts
 
+	def test_group_by_company_subtotals_each_company(self):
+		self.create_invoice(self.company_a, "_TUNA", 200)
+		self.create_invoice(self.company_b, "_TUNB", 300)
+
+		result = execute(self.filters(group_by_company=1))
+		subtotals = [row for row in result[1] if row.get("bold")]
+
+		self.assertEqual([s.company for s in subtotals], [self.company_a, self.company_b])
+		self.assertEqual([s.outstanding for s in subtotals], [200.0, 300.0])
+		self.assertEqual(result[5], 1)
+
 	def test_group_company_expands_to_its_subsidiaries(self):
 		group = self.create_test_company("_Test Consolidation Group", "_TCGRP", is_group=1)
 		child = self.create_test_company("_Test Consolidation Child", "_TCCLD", parent=group)

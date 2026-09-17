@@ -30,6 +30,8 @@ class ConsolidatedReceivablePayable(ReceivablePayableReport):
 		self.companies = get_consolidated_companies(self.filters)
 		self.filters.update(args)
 		self.set_defaults()
+		if self.filters.get("group_by_company"):
+			self.skip_total_row = 1
 		self.party_naming_by = frappe.db.get_single_value(args["naming_by"][0], args["naming_by"][1])
 
 		self.get_columns()
@@ -40,34 +42,45 @@ class ConsolidatedReceivablePayable(ReceivablePayableReport):
 		return self.columns, self.data, None, self.chart, None, self.skip_total_row
 
 	def get_consolidated_data(self, args):
+		group_by_company = self.filters.get("group_by_company")
+		group_by = "company" if group_by_company else "party"
+		subtotal_of = self.company_subtotal if group_by_company else self.party_subtotal
+
 		data = []
-		for rows in self.get_rows_by_party(args).values():
+		for rows in self.get_grouped_rows(args, group_by).values():
 			data.extend(rows)
-			if self.filters.get("group_by_party"):
-				data.append(self.party_subtotal(rows))
+			if group_by_company or self.filters.get("group_by_party"):
+				data.append(subtotal_of(rows))
+				data.append({})  # blank separator, like the engine's own grouping
 
 		return data
 
-	def get_rows_by_party(self, args):
-		"""One engine run per company, regrouped so a party's companies sit together."""
-		by_party = OrderedDict()
+	def get_grouped_rows(self, args, group_by):
+		"""One engine run per company, regrouped so rows sharing `group_by` sit together."""
+		grouped = OrderedDict()
 		for company in self.companies:
 			filters = frappe._dict(self.filters)
 			filters.company = company
 			filters.pop("companies", None)
-			# subtotals are appended once per party here, not once per company
+			# subtotals are appended once per group here, not once per company
 			filters.group_by_party = 0
 
 			parent = frappe.get_cached_value("Company", company, "parent_company")
 			for row in ReceivablePayableReport(filters).run(args)[1]:
 				row.company, row.parent_company = company, parent
-				by_party.setdefault(row.party, []).append(row)
+				grouped.setdefault(row[group_by], []).append(row)
 
-		return by_party
+		return grouped
 
 	def party_subtotal(self, rows):
+		return self.subtotal(rows, party=rows[0].party)
+
+	def company_subtotal(self, rows):
+		return self.subtotal(rows, company=rows[0].company)
+
+	def subtotal(self, rows, **label):
 		# same shape as the engine's own group-by-party subtotal
-		subtotal = frappe._dict(party=rows[0].party, currency=rows[0].get("currency"), bold=1)
+		subtotal = frappe._dict(currency=rows[0].get("currency"), bold=1, **label)
 		for field in self.get_currency_fields():
 			subtotal[field] = sum(flt(row.get(field)) for row in rows)
 
