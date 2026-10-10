@@ -2,6 +2,7 @@
 # See license.txt
 
 import frappe
+from frappe.core.doctype.user_permission.test_user_permission import create_user
 
 from erpnext.selling.doctype.sales_order.mapper import make_sales_invoice
 from erpnext.selling.doctype.sales_order.test_sales_order import (
@@ -148,3 +149,33 @@ class TestItemWiseSalesHistory(ERPNextTestSuite):
 
 		names = {row["sales_order"] for row in self.run_report(item_group=parent_group)[1]}
 		self.assertIn(so.name, names)
+
+	def test_restricted_user_scopes_rows_and_chart(self):
+		own = make_sales_order(
+			customer="_Test Customer 1",
+			item_code="_Test Item",
+			qty=1,
+			rate=1000,
+			transaction_date="2026-06-01",
+		)
+		make_sales_order(
+			customer="_Test Customer 2",
+			item_code="_Test Item",
+			qty=5,
+			rate=9000,
+			transaction_date="2026-06-01",
+		)
+
+		user = create_user("test_item_wise_sales_history_user@example.com", "Sales User")
+		frappe.permissions.add_user_permission("Customer", "_Test Customer 1", user.name)
+
+		with self.set_user(user.name):
+			_, data, _, chart = self.run_report(item_code="_Test Item")
+
+		self.assertEqual({row["customer"] for row in data}, {"_Test Customer 1"})
+		self.assertIn(own.name, {row["sales_order"] for row in data})
+
+		# the chart must not leak the other customer's 45000
+		labels = chart["data"]["labels"]
+		values = chart["data"]["datasets"][0]["values"]
+		self.assertEqual(values[labels.index("_Test Item")], 1000)
